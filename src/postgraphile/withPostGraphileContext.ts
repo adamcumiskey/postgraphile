@@ -6,13 +6,13 @@ import { ExecutionResult } from 'graphql'
 import * as sql from 'pg-sql2'
 import { $$pgClient } from '../postgres/inventory/pgClientFromContext'
 import { pluginHookFromOptions } from './pluginHook'
-import { JWTOptions } from './postgraphile'
+import { JwtOptions } from './postgraphile'
 
 export type WithPostGraphileContextFn = (
   options: {
     pgPool: Pool,
     jwtToken?: string,
-    jwtOptions?: JWTOptions,
+    jwtOptions?: JwtOptions,
     pgDefaultRole?: string,
     pgSettings?: { [key: string]: mixed },
   },
@@ -23,7 +23,7 @@ const withDefaultPostGraphileContext: WithPostGraphileContextFn = async (
   options: {
     pgPool: Pool,
     jwtToken?: string,
-    jwtOptions?: JWTOptions,
+    jwtOptions?: JwtOptions,
     pgDefaultRole?: string,
     pgSettings?: { [key: string]: mixed },
   },
@@ -97,7 +97,7 @@ const withPostGraphileContext: WithPostGraphileContextFn = async (
   options: {
     pgPool: Pool,
     jwtToken?: string,
-    jwtOptions?: JWTOptions,
+    jwtOptions?: JwtOptions,
     pgDefaultRole?: string,
     pgSettings?: { [key: string]: mixed },
   },
@@ -111,9 +111,9 @@ const withPostGraphileContext: WithPostGraphileContextFn = async (
 export default withPostGraphileContext
 
 // Convenience function for parsing jwt audience
-function parseJWTAudience(jwtOptions: JWTOptions): string[] {
+function parseJWTAudience(jwtOptions: JwtOptions): string[] {
   if (jwtOptions.audiences && jwtOptions.verifyOptions && jwtOptions.verifyOptions.audience)
-          throw new Error(`Provide either 'jwtOptions.audiences' or 'jwtOptions.verifyOptions.audience' but not both`)
+    throw new Error(`Provide either 'jwtOptions.audiences' or 'jwtOptions.verifyOptions.audience' but not both`)
 
   if (jwtOptions.audiences) {
     return jwtOptions.audiences
@@ -145,7 +145,7 @@ async function setupPgClientTransaction({
 }: {
   pgClient: Client,
   jwtToken?: string,
-  jwtOptions?: JWTOptions,
+  jwtOptions?: JwtOptions,
   pgDefaultRole?: string,
   pgSettings?: { [key: string]: mixed },
 }): Promise<string | undefined> {

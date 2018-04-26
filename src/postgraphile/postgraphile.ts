@@ -10,7 +10,7 @@ import jwt = require('jsonwebtoken')
 import { GraphQLErrorExtended } from './extendedFormatError'
 import { PluginHookFn, pluginHookFromOptions } from './pluginHook'
 
-export type JWTOptions = {
+export type JwtOptions = {
   // The secret for your JSON web tokens. This will be used to verify tokens in
   // the `Authorization` header, and signing JWT tokens you return in
   // procedures.
@@ -132,7 +132,7 @@ export type PostGraphileOptions = {
   bodySizeLimit?: string,
   // Set the options for JWT authorization
   /* @middlewareOnly */
-  jwtOptions?: JWTOptions,
+  jwtOptions?: JwtOptions,
   // The secret for your JSON web tokens. This will be used to verify tokens in
   // the `Authorization` header, and signing JWT tokens you return in
   // procedures.

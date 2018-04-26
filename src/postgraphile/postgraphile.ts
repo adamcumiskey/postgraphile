@@ -10,6 +10,31 @@ import jwt = require('jsonwebtoken')
 import { GraphQLErrorExtended } from './extendedFormatError'
 import { PluginHookFn, pluginHookFromOptions } from './pluginHook'
 
+export type JWTOptions = {
+  // The secret for your JSON web tokens. This will be used to verify tokens in
+  // the `Authorization` header, and signing JWT tokens you return in
+  // procedures.
+  secret?: string,
+  // Options with which to perform JWT verification - see
+  // https://github.com/auth0/node-jsonwebtoken#jwtverifytoken-secretorpublickey-options-callback
+  /* @middlewareOnly */
+  verifyOptions?: jwt.VerifyOptions,
+  // A comma separated list of strings that give a path in the jwt from which
+  // to extract the postgres role. If none is provided it will use the key
+  // `role` on the root of the jwt.
+  /* @middlewareOnly */
+  role?: Array<string>,
+  // The Postgres type identifier for the compound type which will be signed as
+  // a JWT token if ever found as the return type of a procedure. Can be of the
+  // form: `my_schema.my_type`. You may use quotes as needed:
+  // `"my-special-schema".my_type`.
+  pgTypeIdentifier?: string,
+  // The audiences to use when verifing the JWT token. If not set the audience
+  // will be `['postgraphile']`.
+  /* @middlewareOnly */
+  audiences?: Array<string>
+}
+
 // Please note that the comments for this type are turned into documentation
 // automatically. We try and specify the options in the same order as the CLI.
 // Anything tagged `@middlewareOnly` will not appear in the schema-only docs.
@@ -105,6 +130,9 @@ export type PostGraphileOptions = {
   // (case insensitive).
   /* @middlewareOnly */
   bodySizeLimit?: string,
+  // Set the options for JWT authorization
+  /* @middlewareOnly */
+  jwtOptions?: JWTOptions,
   // The secret for your JSON web tokens. This will be used to verify tokens in
   // the `Authorization` header, and signing JWT tokens you return in
   // procedures.
@@ -171,6 +199,17 @@ type PostgraphileSchemaBuilder = {
 export function getPostgraphileSchemaBuilder(pgPool: Pool, schema: string | Array<string>, incomingOptions: PostGraphileOptions): PostgraphileSchemaBuilder {
   const pluginHook = pluginHookFromOptions(incomingOptions)
   const options = pluginHook('postgraphile:options', incomingOptions, { pgPool, schema })
+
+	// assign jwtOptions to legacy fields
+	if (options.jwtOptions) {
+		const { secret, verifyOptions, role, pgTypeIdentifier, audiences } = options.jwtOptions
+		options.jwtSecret = secret
+		options.jwtVerifyOptions = verifyOptions
+		options.jwtRole = role
+		options.jwtPgTypeIdentifier = pgTypeIdentifier
+		options.jwtAudiences = audiences
+	}
+
   // Check for a jwtSecret without a jwtPgTypeIdentifier
   // a secret without a token identifier prevents JWT creation
   if (options.jwtSecret && !options.jwtPgTypeIdentifier) {

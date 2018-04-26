@@ -69,11 +69,22 @@ test('will return the asynchronous value from the callback', async () => {
   ).toBe(value)
 })
 
-test('will throw an error if there was a `jwtToken`, but no `jwtSecret`', async () => {
+test('will throw an error if there was a `jwtToekn`, but no `jwtOptions`', async () => {
   const pgClient = { query: jest.fn(), release: jest.fn() }
   const pgPool = { connect: jest.fn(() => pgClient) }
   await expectHttpError(
-    withPostGraphileContext({ pgPool, jwtToken: 'asd' }, () => {}),
+    withPostGraphileContext({pgPool, jwtToken: 'asd'}, () => {}),
+    403,
+    'Must provide jwtOptions when using jwt authentication'
+  )
+  expect(pgClient.query.mock.calls).toEqual([['begin'], ['commit']])
+})
+
+test('will throw an error if there was a `jwtToken`, but no `jwtOptions.secret`', async () => {
+  const pgClient = { query: jest.fn(), release: jest.fn() }
+  const pgPool = { connect: jest.fn(() => pgClient) }
+  await expectHttpError(
+    withPostGraphileContext({ pgPool, jwtToken: 'asd', jwtOptions: {} }, () => {}),
     403,
     'Not allowed to provide a JWT token.',
   )
@@ -85,7 +96,7 @@ test('will throw an error for a malformed `jwtToken`', async () => {
   const pgPool = { connect: jest.fn(() => pgClient) }
   await expectHttpError(
     withPostGraphileContext(
-      { pgPool, jwtToken: 'asd', jwtSecret: 'secret' },
+      { pgPool, jwtToken: 'asd', jwtOptions: { secret: 'secret' }},
       () => {},
     ),
     403,
@@ -104,7 +115,9 @@ test('will throw an error if the JWT token was signed with the wrong signature',
         jwtToken: jwt.sign({ a: 1, b: 2, c: 3 }, 'wrong secret', {
           noTimestamp: true,
         }),
-        jwtSecret: 'secret',
+        jwtOptions: {
+          secret: 'secret'
+        }
       },
       () => {},
     ),
@@ -124,7 +137,9 @@ test('will throw an error if the JWT token does not have an audience', async () 
         jwtToken: jwt.sign({ a: 1, b: 2, c: 3 }, 'secret', {
           noTimestamp: true,
         }),
-        jwtSecret: 'secret',
+        jwtOptions: {
+          secret: 'secret'
+        }
       },
       () => {},
     ),
@@ -144,7 +159,9 @@ test('will throw an error if the JWT token does not have an appropriate audience
         jwtToken: jwt.sign({ a: 1, b: 2, c: 3, aud: 'postgrest' }, 'secret', {
           noTimestamp: true,
         }),
-        jwtSecret: 'secret',
+        jwtOptions: {
+          secret: 'secret'
+        }
       },
       () => {},
     ),
@@ -163,7 +180,9 @@ test('will succeed with all the correct things', async () => {
       jwtToken: jwt.sign({ aud: 'postgraphile' }, 'secret', {
         noTimestamp: true,
       }),
-      jwtSecret: 'secret',
+      jwtOptions: {
+        secret: 'secret'
+      }
     },
     () => {},
   )
@@ -188,7 +207,9 @@ test('will add extra claims as available', async () => {
       jwtToken: jwt.sign({ aud: 'postgraphile', a: 1, b: 2, c: 3 }, 'secret', {
         noTimestamp: true,
       }),
-      jwtSecret: 'secret',
+      jwtOptions: {
+        secret: 'secret'
+      }
     },
     () => {},
   )
@@ -223,7 +244,9 @@ test('will add extra settings as available', async () => {
       jwtToken: jwt.sign({ aud: 'postgraphile' }, 'secret', {
         noTimestamp: true,
       }),
-      jwtSecret: 'secret',
+      jwtOptions: {
+        secret: 'secret'
+      },
       pgSettings: {
         'foo.bar': 'test1',
         'some.other.var': 'hello world',
@@ -260,7 +283,9 @@ test('undefined and null extra settings are ignored while 0 is converted to a st
       jwtToken: jwt.sign({ aud: 'postgraphile' }, 'secret', {
         noTimestamp: true,
       }),
-      jwtSecret: 'secret',
+      jwtOptions: {
+        secret: 'secret'
+      },
       pgSettings: {
         'foo.bar': 'test1',
         'some.other.var': null,
@@ -304,7 +329,9 @@ test('extra pgSettings that are objects throw an error', async () => {
         jwtToken: jwt.sign({ aud: 'postgraphile' }, 'secret', {
           noTimestamp: true,
         }),
-        jwtSecret: 'secret',
+        jwtOptions: {
+          secret: 'secret'
+        },
         pgSettings: {
           'some.object': { toString: () => 'SomeObject' },
         },
@@ -330,7 +357,9 @@ test('extra pgSettings that are symbols throw an error', async () => {
         jwtToken: jwt.sign({ aud: 'postgraphile' }, 'secret', {
           noTimestamp: true,
         }),
-        jwtSecret: 'secret',
+        jwtOptions: {
+          secret: 'secret'
+        },
         pgSettings: {
           'some.symbol': Symbol('some.symbol'),
         },
@@ -356,7 +385,9 @@ test('extra pgSettings that are booleans throw an error', async () => {
         jwtToken: jwt.sign({ aud: 'postgraphile' }, 'secret', {
           noTimestamp: true,
         }),
-        jwtSecret: 'secret',
+        jwtOptions: {
+          secret: 'secret'
+        },
         pgSettings: {
           'some.boolean': true,
         },
@@ -377,7 +408,9 @@ test('will set the default role if available', async () => {
   await withPostGraphileContext(
     {
       pgPool,
-      jwtSecret: 'secret',
+      jwtOptions: {
+        secret: 'secret'
+      },
       pgDefaultRole: 'test_default_role',
     },
     () => {},
@@ -403,7 +436,9 @@ test('will set the default role if no other role was provided in the JWT', async
       jwtToken: jwt.sign({ aud: 'postgraphile', a: 1, b: 2, c: 3 }, 'secret', {
         noTimestamp: true,
       }),
-      jwtSecret: 'secret',
+      jwtOptions: {
+        secret: 'secret'
+      },
       pgDefaultRole: 'test_default_role',
     },
     () => {},
@@ -443,7 +478,9 @@ test('will set a role provided in the JWT', async () => {
         'secret',
         { noTimestamp: true },
       ),
-      jwtSecret: 'secret',
+      jwtOptions: {
+        secret: 'secret'
+      }
     },
     () => {},
   )
@@ -484,7 +521,9 @@ test('will set a role provided in the JWT superceding the default role', async (
         'secret',
         { noTimestamp: true },
       ),
-      jwtSecret: 'secret',
+      jwtOptions: {
+        secret: 'secret'
+      },
       pgDefaultRole: 'test_default_role',
     },
     () => {},
@@ -532,8 +571,10 @@ test('will set a role provided in the JWT', async () => {
         'secret',
         { noTimestamp: true },
       ),
-      jwtSecret: 'secret',
-      jwtRole: ['some', 'other', 'path'],
+      jwtOptions: {
+        secret: 'secret'
+        role: ['some', 'other', 'path'],
+      }
     },
     () => {},
   )
@@ -580,8 +621,10 @@ test('will set a role provided in the JWT superceding the default role', async (
         'secret',
         { noTimestamp: true },
       ),
-      jwtSecret: 'secret',
-      jwtRole: ['some', 'other', 'path'],
+      jwtOptions: {
+        secret: 'secret'
+        role: ['some', 'other', 'path']
+      },
       pgDefaultRole: 'test_default_role',
     },
     () => {},
@@ -612,7 +655,7 @@ test('will set a role provided in the JWT superceding the default role', async (
   ])
 })
 
-describe('jwtVerifyOptions', () => {
+describe('jwtOptions.verifyOptions', () => {
   let pgClient
   let pgPool
   beforeEach(() => {
@@ -620,35 +663,39 @@ describe('jwtVerifyOptions', () => {
     pgPool = { connect: jest.fn(() => pgClient) }
   })
 
-  test('will throw an error if jwtAudiences and jwtVerifyOptions.audience are both provided', async () => {
+  test('will throw an error if jwtOptions.audiences and jwtOptions.VerifyOptions.audiences are both provided', async () => {
     await expectHttpError(
       withPostGraphileContext(
         {
           pgPool,
-          jwtAudiences: ['some-other-audience'],
           jwtToken: jwt.sign({ aud: 'postgrest' }, 'secret'),
-          jwtSecret: 'secret',
-          jwtVerifyOptions: { audience: 'another-audience' },
+          jwtOptions: {
+            secret: 'secret',
+            verifyOptions: { audience: 'another-audience' },
+            audiences: ['some-other-audience']
+          }
         },
         () => {},
       ),
       403,
-      'Provide either \'jwtAudiences\' or \'jwtVerifyOptions.audience\' but not both',
+      'Provide either \'jwtOptions.audiences\' or \'jwtOptions.verifyOptions.audience\' but not both',
     )
     expect(pgClient.query.mock.calls).toEqual([['begin'], ['commit']])
   })
 
-  test('will succeed with both jwtAudiences and jwtVerifyOptions if jwtVerifyOptions does not have an audience field', async () => {
+  test('will succeed with both jwtOptions.audiences and jwtOptions.verifyOptions if jwtOptions.verifyOptions does not have an audience field', async () => {
     await withPostGraphileContext(
       {
         pgPool,
-        jwtAudiences: ['my-audience'],
         jwtToken: jwt.sign({ aud: 'my-audience' }, 'secret', {
           noTimestamp: true,
           subject: 'my-subject',
         }),
-        jwtSecret: 'secret',
-        jwtVerifyOptions: { subject: 'my-subject' },
+        jwtOptions: {
+          secret: 'secret',
+          verifyOptions: { subject: 'my-subject' },
+          audiences: ['my-audience'],
+        }
       },
       () => {},
     )
@@ -675,8 +722,10 @@ describe('jwtVerifyOptions', () => {
         {
           pgPool,
           jwtToken: jwt.sign({ aud: 'postgrest' }, 'secret'),
-          jwtSecret: 'secret',
-          jwtVerifyOptions: { audience: 'another-audience' },
+          jwtOptions: {
+            secret: 'secret',
+            verifyOptions: { audience: 'another-audience' }
+          }
         },
         () => {},
       ),
@@ -691,10 +740,12 @@ describe('jwtVerifyOptions', () => {
       withPostGraphileContext(
         {
           pgPool,
-          jwtAudiences: ['my-audience'],
-          jwtSecret: 'secret',
           jwtToken: jwt.sign({ aud: 'my-audience', sub: 'gorilla' }, 'secret'),
-          jwtVerifyOptions: { subject: 'orangutan' },
+          jwtOptions: {
+            secret: 'secret',
+            verifyOptions: { subject: 'orangutan' },
+            audiences: ['my-audience']
+          }
         },
         () => {},
       ),
@@ -709,12 +760,14 @@ describe('jwtVerifyOptions', () => {
       withPostGraphileContext(
         {
           pgPool,
-          jwtSecret: 'secret',
           jwtToken: jwt.sign(
             { aud: 'postgraphile', iss: 'alpha:nasa' },
             'secret',
           ),
-          jwtVerifyOptions: { issuer: ['alpha:aliens', 'alpha:ufo'] },
+          jwtOptions: {
+            secret: 'secret',
+            verifyOptions: { issuer: ['alpha:aliens', 'alpha:ufo'] }
+          }
         },
         () => {},
       ),
@@ -729,8 +782,10 @@ describe('jwtVerifyOptions', () => {
       withPostGraphileContext(
         {
           pgPool,
-          jwtSecret: 'secret',
           jwtToken: jwt.sign({ aud: 'something' }, 'secret'),
+          jwtOptions: {
+            secret: 'secret'
+          }
         },
         () => {},
       ),

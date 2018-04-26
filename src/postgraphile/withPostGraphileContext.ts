@@ -6,15 +6,13 @@ import { ExecutionResult } from 'graphql'
 import * as sql from 'pg-sql2'
 import { $$pgClient } from '../postgres/inventory/pgClientFromContext'
 import { pluginHookFromOptions } from './pluginHook'
+import { JWTOptions } from './postgraphile'
 
 export type WithPostGraphileContextFn = (
   options: {
     pgPool: Pool,
     jwtToken?: string,
-    jwtSecret?: string,
-    jwtAudiences?: Array<string>,
-    jwtRole: Array<string>,
-    jwtVerifyOptions?: jwt.VerifyOptions,
+    jwtOptions?: JWTOptions,
     pgDefaultRole?: string,
     pgSettings?: { [key: string]: mixed },
   },
@@ -25,10 +23,7 @@ const withDefaultPostGraphileContext: WithPostGraphileContextFn = async (
   options: {
     pgPool: Pool,
     jwtToken?: string,
-    jwtSecret?: string,
-    jwtAudiences?: Array<string>,
-    jwtRole: Array<string>,
-    jwtVerifyOptions?: jwt.VerifyOptions,
+    jwtOptions?: JWTOptions,
     pgDefaultRole?: string,
     pgSettings?: { [key: string]: mixed },
   },
@@ -37,10 +32,7 @@ const withDefaultPostGraphileContext: WithPostGraphileContextFn = async (
   const {
     pgPool,
     jwtToken,
-    jwtSecret,
-    jwtAudiences,
-    jwtRole = ['role'],
-    jwtVerifyOptions,
+    jwtOptions,
     pgDefaultRole,
     pgSettings,
   } = options
@@ -58,10 +50,7 @@ const withDefaultPostGraphileContext: WithPostGraphileContextFn = async (
     const pgRole = await setupPgClientTransaction({
       pgClient,
       jwtToken,
-      jwtSecret,
-      jwtAudiences,
-      jwtRole,
-      jwtVerifyOptions,
+      jwtOptions,
       pgDefaultRole,
       pgSettings,
     })
@@ -90,7 +79,7 @@ const withDefaultPostGraphileContext: WithPostGraphileContextFn = async (
  * const result = await withPostGraphileContext({
  *   pgPool,
  *   jwtToken,
- *   jwtSecret,
+ *   jwtOptions,
  *   pgDefaultRole,
  * }, async context => {
  *   return await graphql(
@@ -108,10 +97,7 @@ const withPostGraphileContext: WithPostGraphileContextFn = async (
   options: {
     pgPool: Pool,
     jwtToken?: string,
-    jwtSecret?: string,
-    jwtAudiences?: Array<string>,
-    jwtRole: Array<string>,
-    jwtVerifyOptions?: jwt.VerifyOptions,
+    jwtOptions?: JWTOptions,
     pgDefaultRole?: string,
     pgSettings?: { [key: string]: mixed },
   },
@@ -123,6 +109,23 @@ const withPostGraphileContext: WithPostGraphileContextFn = async (
 }
 
 export default withPostGraphileContext
+
+// Convenience function for parsing jwt audience
+function parseJWTAudience(jwtOptions: JWTOptions): string[] {
+  if (jwtOptions.audiences && jwtOptions.verifyOptions && jwtOptions.verifyOptions.audience)
+          throw new Error(`Provide either 'jwtOptions.audiences' or 'jwtOptions.verifyOptions.audience' but not both`)
+
+  if (jwtOptions.audiences) {
+    return jwtOptions.audiences
+  }
+
+  if (jwtOptions.verifyOptions && jwtOptions.verifyOptions.audience) {
+    let audience = jwtOptions.verifyOptions.audience
+    return (typeof audience === 'string') ? [audience] : audience
+  }
+
+  return [ 'postgraphile' ]
+}
 
 /**
  * Sets up the Postgres client transaction by decoding the JSON web token and
@@ -136,19 +139,13 @@ export default withPostGraphileContext
 async function setupPgClientTransaction({
   pgClient,
   jwtToken,
-  jwtSecret,
-  jwtAudiences,
-  jwtRole,
-  jwtVerifyOptions,
+  jwtOptions,
   pgDefaultRole,
   pgSettings,
 }: {
   pgClient: Client,
   jwtToken?: string,
-  jwtSecret?: string,
-  jwtAudiences?: Array<string>,
-  jwtRole: Array<string>,
-  jwtVerifyOptions?: jwt.VerifyOptions,
+  jwtOptions?: JWTOptions,
   pgDefaultRole?: string,
   pgSettings?: { [key: string]: mixed },
 }): Promise<string | undefined> {
@@ -162,20 +159,20 @@ async function setupPgClientTransaction({
     // Try to run `jwt.verify`. If it fails, capture the error and re-throw it
     // as a 403 error because the token is not trustworthy.
     try {
+      if (!jwtOptions)
+        throw new Error('Must provide jwtOptions when using jwt authentication')
+
       // If a JWT token was defined, but a secret was not provided to the server
       // throw a 403 error.
-      if (typeof jwtSecret !== 'string')
+      if (typeof jwtOptions.secret !== 'string')
         throw new Error('Not allowed to provide a JWT token.')
 
-      if (jwtAudiences && jwtVerifyOptions && jwtVerifyOptions.audience)
-        throw new Error(`Provide either 'jwtAudiences' or 'jwtVerifyOptions.audience' but not both`)
-
-      jwtClaims = jwt.verify(jwtToken, jwtSecret, {
-        audience: jwtAudiences || ['postgraphile'],
-        ...jwtVerifyOptions,
+      jwtClaims = jwt.verify(jwtToken, jwtOptions.secret, {
+        audience: parseJWTAudience(jwtOptions),
+        ...jwtOptions.verifyOptions,
       })
 
-      const roleClaim = getPath(jwtClaims, jwtRole)
+      const roleClaim = getPath(jwtClaims, jwtOptions.role || ['role'])
 
       // If there is a `role` property in the claims, use that instead of our
       // default role.
